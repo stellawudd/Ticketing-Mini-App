@@ -7,54 +7,57 @@ import SwiftUI
 
 struct MovieConcessionView: View {
     @ObservedObject var coordinator: CheckoutFlowViewModel
-    @State private var remainingTime: TimeInterval = 0
+    @StateObject private var viewModel: MovieConcessionViewModel
+
+    init(coordinator: CheckoutFlowViewModel) {
+        self.coordinator = coordinator
+        _viewModel = StateObject(wrappedValue: MovieConcessionViewModel(coordinator: coordinator))
+    }
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("Concessions")
+            Text("Add Concessions")
                 .font(.title)
+                .padding()
 
-            if remainingTime > 0 {
-                Text("Time remaining: \(Int(remainingTime))s")
+            if viewModel.remainingTime > 0 {
+                Text("Time remaining: \(Int(viewModel.remainingTime))s")
                     .foregroundColor(.red)
+                    .font(.headline)
             }
 
-            Text("Selected Seat: \(coordinator.selectedSeat ?? "None")")
-            Text("Selected Ticket: \(coordinator.selectedTicketType ?? "None")")
+            Text("Seat: \(coordinator.selectedSeat ?? "None") | Ticket: \(coordinator.selectedTicketType ?? "None")")
+                .foregroundColor(.secondary)
+                .font(.caption)
 
-            Button("Add Popcorn") {
-                coordinator.selectedConcessions.append("Popcorn")
-            }
-
-            Button("Add Soda") {
-                coordinator.selectedConcessions.append("Soda")
+            if viewModel.isLoading {
+                ProgressView("Loading concessions...")
+            } else {
+                ForEach(viewModel.availableConcessions) { item in
+                    Button("\(item.name) - $\(String(format: "%.2f", item.price))") {
+                        viewModel.addConcession(item.name)
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
 
             if !coordinator.selectedConcessions.isEmpty {
                 Text("Selected: \(coordinator.selectedConcessions.joined(separator: ", "))")
+                    .foregroundColor(.green)
             }
 
+            Spacer()
+
             Button("Continue to Checkout") {
-                coordinator.navigateToCheckout()
+                viewModel.onContinue()
             }
+            .buttonStyle(.borderedProminent)
         }
         .padding()
         .navigationBarTitle("Concessions")
         .task {
-            await coordinator.fetchConcessionsIfNeeded()
-            startCountdown()
-        }
-    }
-
-    private func startCountdown() {
-        guard let expireDate = coordinator.countdownExpireDate else { return }
-        remainingTime = expireDate.timeIntervalSinceNow
-
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-            remainingTime = expireDate.timeIntervalSinceNow
-            if remainingTime <= 0 {
-                timer.invalidate()
-            }
+            await viewModel.fetchConcessions()
+            viewModel.startCountdownTimer()
         }
     }
 }

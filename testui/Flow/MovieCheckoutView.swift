@@ -20,13 +20,31 @@ struct MovieCheckoutView: View {
         VStack(spacing: 20) {
             Text("Checkout")
                 .font(.title)
+                .padding()
 
-            Text("Selected Seat: \(coordinator.selectedSeat ?? "None")")
-            Text("Selected Ticket: \(coordinator.selectedTicketType ?? "None")")
-
-            if !coordinator.selectedConcessions.isEmpty {
-                Text("Concessions: \(coordinator.selectedConcessions.joined(separator: ", "))")
+            if viewModel.remainingTime > 0 {
+                Text("Time remaining: \(Int(viewModel.remainingTime))s")
+                    .foregroundColor(.red)
+                    .font(.headline)
             }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Order Summary:")
+                    .font(.headline)
+
+                Text("Seat: \(coordinator.selectedSeat ?? "None")")
+                Text("Ticket: \(coordinator.selectedTicketType ?? "None")")
+
+                if !coordinator.selectedConcessions.isEmpty {
+                    Text("Concessions: \(coordinator.selectedConcessions.joined(separator: ", "))")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(8)
+
+            Spacer()
 
             if viewModel.isSubmitting {
                 ProgressView("Submitting order...")
@@ -35,24 +53,41 @@ struct MovieCheckoutView: View {
             Button("Complete Purchase") {
                 Task {
                     await viewModel.submitOrder()
-                    // On success, dismiss the entire flow
                     onDismiss()
                 }
             }
             .disabled(viewModel.isSubmitting)
+            .buttonStyle(.borderedProminent)
         }
         .padding()
         .navigationBarTitle("Checkout")
+        .onAppear {
+            viewModel.startCountdownTimer()
+        }
     }
 }
 
 
+@MainActor
 class MovieCheckoutViewModel: ObservableObject {
     var coordinator: CheckoutFlowViewModel
     @Published var isSubmitting = false
+    @Published var remainingTime: TimeInterval = 0
 
     init(coordinator: CheckoutFlowViewModel) {
         self.coordinator = coordinator
+    }
+
+    func startCountdownTimer() {
+        guard let expireDate = coordinator.countdownExpireDate else { return }
+        remainingTime = expireDate.timeIntervalSinceNow
+
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            self.remainingTime = expireDate.timeIntervalSinceNow
+            if self.remainingTime <= 0 {
+                timer.invalidate()
+            }
+        }
     }
 
     func submitOrder() async {

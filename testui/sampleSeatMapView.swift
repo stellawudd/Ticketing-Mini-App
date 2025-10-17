@@ -387,18 +387,19 @@ struct SeatMapView_FlashIndicators: View {
                 }
                 .scrollIndicatorsFlash(trigger: flashTrigger)
                 .defaultScrollAnchor(.center)
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in
-                            if !hasInteracted {
-                                hasInteracted = true
-                                print("User interacted - stopping flash")
-                            }
-                        }
-                )
-                .onAppear {
-                    startFlashing()
-                }
+                .scrollIndicatorsFlash(onAppear: true)
+//                .simultaneousGesture(
+//                    DragGesture(minimumDistance: 0)
+//                        .onChanged { _ in
+//                            if !hasInteracted {
+//                                hasInteracted = true
+//                                print("User interacted - stopping flash")
+//                            }
+//                        }
+//                )
+//                .onAppear {
+//                    startFlashing()
+//                }
             }
             .frame(height: 400)
             .padding(.horizontal, 10)
